@@ -7,10 +7,10 @@ public class SharpMovement : MonoBehaviour
     public Transform groundCheck;
     public Transform player;
     public Rigidbody rb;
-    public float movementSpeed = 10f;
-    public static float maxSpeed = 10f;
+    public float acceleration = 30000f;
+    public float maxSpeed = 10f;
 
-    public Vector3 jumpPower = new Vector3(0, 1000, 0);
+    public Vector3 jumpPower = new Vector3(0, 200, 0);
     public float groundDistance = 0.1f;
     public LayerMask groundMask;
     bool grounded = true;
@@ -19,16 +19,20 @@ public class SharpMovement : MonoBehaviour
 
 
     float timeElapsedSinceJump;
-    Vector3 xSpeed;
+    float xSpeed = 0;
     float ySpeed = 0;
-    Vector3 zSpeed;
-    float fasterMaxSpeed = maxSpeed * 1.5f;
-    float normalMaxSpeed = maxSpeed;
+    float zSpeed = 0;
+    float fakeXSpeed = 0;
+    float lastFakeXSpeed = 0;
+    float fasterMaxSpeed;
+    float normalMaxSpeed;
+
 
     // Start is called before the first frame update
     void Start()
     {
-
+        fasterMaxSpeed = maxSpeed * 1.5f;
+        normalMaxSpeed = maxSpeed;
     }
 
     void jump()
@@ -40,44 +44,27 @@ public class SharpMovement : MonoBehaviour
     void Update()
     {
         grounded = Physics.CheckSphere(groundCheck.position, groundDistance, groundMask);
-        xSpeed = rb.GetRelativePointVelocity(player.position);
-        ySpeed = rb.velocity.y;
-        zSpeed = rb.GetRelativePointVelocity(player.position);
-        Debug.Log(xSpeed);
-        if (xSpeed.z < maxSpeed)
+        maxSpeed = normalMaxSpeed;
+        if (Input.GetKey(KeyCode.LeftShift) && Input.GetKey("w"))
         {
-            maxSpeed = normalMaxSpeed;
-            if (Input.GetKey(KeyCode.LeftShift) && Input.GetKey("w"))
-            {
-                rb.AddRelativeForce(Vector3.forward * movementSpeed * 1.5f * Time.deltaTime);
-                maxSpeed = fasterMaxSpeed;
-            }
-            else if (Input.GetKey("w"))
-            {
-                rb.AddRelativeForce(Vector3.forward * movementSpeed * Time.deltaTime);
-            }
+            rb.AddRelativeForce(Vector3.forward * acceleration * 1.5f * Time.deltaTime);
+            maxSpeed = fasterMaxSpeed;
         }
-
-        if (xSpeed.z > -maxSpeed)
+        else if (Input.GetKey("w"))
         {
-            if (Input.GetKey("s"))
-            {
-                rb.AddRelativeForce(Vector3.back * movementSpeed * Time.deltaTime);
-            }
+           rb.AddRelativeForce(Vector3.forward * acceleration * Time.deltaTime);
         }
-        if (zSpeed.x > -maxSpeed)
+        if (Input.GetKey("s"))
         {
-            if (Input.GetKey("a"))
-            {
-                rb.AddRelativeForce(Vector3.left * movementSpeed * Time.deltaTime);
-            }
+            rb.AddRelativeForce(Vector3.back * acceleration * Time.deltaTime);
         }
-        if (zSpeed.x < maxSpeed)
+        if (Input.GetKey("a"))
         {
-            if (Input.GetKey("d"))
-            {
-                rb.AddRelativeForce(Vector3.right * movementSpeed * Time.deltaTime);
-            }
+            rb.AddRelativeForce(Vector3.left * acceleration * Time.deltaTime);
+        }
+        if (Input.GetKey("d"))
+        {
+            rb.AddRelativeForce(Vector3.right * acceleration * Time.deltaTime);
         }
         if (Input.GetKey(KeyCode.Space) && grounded && !jumpFlag)
         {
@@ -92,7 +79,12 @@ public class SharpMovement : MonoBehaviour
         {
             ySpeed = 0;
         }
-        
+        fakeXSpeed = player.position.x - lastFakeXSpeed;
+        lastFakeXSpeed = fakeXSpeed;
+        xSpeed = Mathf.Clamp(rb.velocity.x, -(maxSpeed * Time.deltaTime), (maxSpeed * Time.deltaTime));
+        zSpeed = Mathf.Clamp(rb.velocity.z, -(maxSpeed * Time.deltaTime), (maxSpeed * Time.deltaTime));
+        rb.velocity = new Vector3(xSpeed, rb.velocity.y, zSpeed);
+
     }
 }
     
