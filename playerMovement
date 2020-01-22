@@ -7,14 +7,15 @@ public class SharpMovement : MonoBehaviour
     public Transform groundCheck;
     public Transform player;
     public Rigidbody rb;
-    public float acceleration = 30000f;
+    public float movementSpeed = 30000f;
     public float maxSpeed = 10f;
 
     public Vector3 jumpPower = new Vector3(0, 200, 0);
     public float groundDistance = 0.1f;
     public LayerMask groundMask;
     bool grounded = true;
-    bool jumpFlag = false;
+    bool inJumpSquat = false;
+    bool leftGround = false;
 
 
 
@@ -22,15 +23,26 @@ public class SharpMovement : MonoBehaviour
     float xSpeed = 0;
     float ySpeed = 0;
     float zSpeed = 0;
-    float fakeXSpeed = 0;
-    float lastFakeXSpeed = 0;
+    Vector3 localVelocity = new Vector3(0, 0, 0);
+    Vector3 velocity;
+    float superFastMovementSpeed;
+    float normalMovementSpeed;
+    float lightningJumpMaxSpeed;
     float fasterMaxSpeed;
     float normalMaxSpeed;
+    int movingForwardBack = 0;
+    int movingLeftRight = 0;
+
+    bool periodKeyPressed = false;
+    bool commaKeyPressed = false;
 
 
     // Start is called before the first frame update
     void Start()
     {
+        superFastMovementSpeed = movementSpeed * 3;
+        normalMovementSpeed = movementSpeed;
+        lightningJumpMaxSpeed = maxSpeed * 2.5f;
         fasterMaxSpeed = maxSpeed * 1.5f;
         normalMaxSpeed = maxSpeed;
     }
@@ -40,50 +52,101 @@ public class SharpMovement : MonoBehaviour
         rb.AddForce(jumpPower);
     }
 
+    void debug()
+    {
+        if (Input.GetKey(",") && !commaKeyPressed)
+        {
+            Debug.Log("Max Speed increased!");
+            maxSpeed += 10;
+            fasterMaxSpeed += 10;
+            normalMaxSpeed += 10;
+
+            commaKeyPressed = true;
+        }
+        else if (Input.GetKeyUp(","))
+        {
+            commaKeyPressed = false;
+        }
+        if (Input.GetKey(".") && !periodKeyPressed)
+        {
+            Debug.Log("Max Speed decreased :(");
+            maxSpeed -= 10;
+            fasterMaxSpeed -= 10;
+            normalMaxSpeed -= 10;
+            periodKeyPressed = true;
+        }
+        else if (Input.GetKeyUp("."))
+        {
+            periodKeyPressed = false;
+        }
+    }
+
     // Update is called once per frame
-    void Update()
+    void FixedUpdate()
     {
         grounded = Physics.CheckSphere(groundCheck.position, groundDistance, groundMask);
-        maxSpeed = normalMaxSpeed;
         if (Input.GetKey(KeyCode.LeftShift) && Input.GetKey("w"))
         {
-            rb.AddRelativeForce(Vector3.forward * acceleration * 1.5f * Time.deltaTime);
-            maxSpeed = fasterMaxSpeed;
+            rb.AddRelativeForce(Vector3.forward * movementSpeed * 1.5f * Time.deltaTime / rb.mass);
         }
         else if (Input.GetKey("w"))
         {
-           rb.AddRelativeForce(Vector3.forward * acceleration * Time.deltaTime);
+            rb.AddRelativeForce(Vector3.forward * movementSpeed * Time.deltaTime * rb.mass);
         }
         if (Input.GetKey("s"))
         {
-            rb.AddRelativeForce(Vector3.back * acceleration * Time.deltaTime);
+            rb.AddRelativeForce(Vector3.back * movementSpeed * Time.deltaTime * rb.mass);
         }
         if (Input.GetKey("a"))
         {
-            rb.AddRelativeForce(Vector3.left * acceleration * Time.deltaTime);
+            rb.AddRelativeForce(Vector3.left * movementSpeed * Time.deltaTime * rb.mass);
         }
         if (Input.GetKey("d"))
         {
-            rb.AddRelativeForce(Vector3.right * acceleration * Time.deltaTime);
-        }
-        if (Input.GetKey(KeyCode.Space) && grounded && !jumpFlag)
+              rb.AddRelativeForce(Vector3.right * movementSpeed * Time.deltaTime * rb.mass);
+         }
+        if (Input.GetKey(KeyCode.Space) && grounded && !inJumpSquat)
         {
             jump();
-            jumpFlag = true;
+            inJumpSquat = true;
         }
-        else
+        // Lightning jump
+        // Reads left click
+        if (Input.GetMouseButton(1) && grounded && !inJumpSquat)
         {
-            jumpFlag = false;
+            rb.AddForce(Vector3.up * 200); 
+            inJumpSquat = true;
+            movementSpeed = superFastMovementSpeed;
+            maxSpeed = superFastMovementSpeed;
+            rb.AddRelativeForce(Vector3.forward * superFastMovementSpeed * 20 * Time.deltaTime / rb.mass);
         }
+       
         if (grounded)
         {
             ySpeed = 0;
+            movementSpeed = normalMovementSpeed;
+            if (Input.GetKey(KeyCode.LeftShift) && Input.GetKey("w"))
+            {
+                maxSpeed = fasterMaxSpeed;
+            }
+            else
+            {
+                maxSpeed = normalMaxSpeed;
+            }
         }
-        fakeXSpeed = player.position.x - lastFakeXSpeed;
-        lastFakeXSpeed = fakeXSpeed;
-        xSpeed = Mathf.Clamp(rb.velocity.x, -(maxSpeed * Time.deltaTime), (maxSpeed * Time.deltaTime));
-        zSpeed = Mathf.Clamp(rb.velocity.z, -(maxSpeed * Time.deltaTime), (maxSpeed * Time.deltaTime));
-        rb.velocity = new Vector3(xSpeed, rb.velocity.y, zSpeed);
+        else
+        {
+            leftGround = true;
+            inJumpSquat = false;
+        }
+        rb.AddForce(Vector3.down * 100 * Time.deltaTime);
+        //Debug.Log(player.rotation);
+        
+        localVelocity = rb.transform.InverseTransformDirection(rb.velocity);
+        localVelocity = new Vector3(Mathf.Clamp(localVelocity.z * movingLeftRight, -maxSpeed * Time.deltaTime, maxSpeed * Time.deltaTime), localVelocity.y, Mathf.Clamp(localVelocity.x * movingForwardBack, -maxSpeed * Time.deltaTime, maxSpeed * Time.deltaTime));
+        rb.velocity = rb.transform.TransformDirection(localVelocity);
+        velocity = rb.velocity;
+        //Debug.Log(rb.velocity.x);
 
     }
 }
